@@ -17,6 +17,7 @@
   using sock_t = SOCKET;
   constexpr sock_t kInvalidSock = INVALID_SOCKET;
   #define CLOSE_SOCKET closesocket
+  using ssize_t = ptrdiff_t;
 #else
   #include <arpa/inet.h>
   #include <fcntl.h>
