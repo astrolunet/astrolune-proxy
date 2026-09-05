@@ -83,7 +83,7 @@ struct ConnectConfig {
     // --- P2P / Astrolune network ---
     std::vector<std::string> seed_peers;      // initial peer addresses
     std::string chain_id;                     // network chain ID
-    std::string data_dir;                     // persistent state directory
+    std::filesystem::path data_dir;            // persistent state directory
 
     // --- Logging ---
     bool log_dns = false;
