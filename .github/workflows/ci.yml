@@ -16,10 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install dependencies (Linux)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libmbedtls-dev
-
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
@@ -31,7 +27,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: proxy-${{ matrix.os }}
-          path: build/**/*
+          path: build/astrolune-connect*
 
   release:
     needs: build
