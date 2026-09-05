@@ -1,6 +1,6 @@
 // SOCKS5 / HTTP CONNECT proxy for Astrolune.
 
-#include "socks5_proxy.hpp"
+#include "ecosystem/proxy/socks5_proxy.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -11,12 +11,28 @@
 #include <unordered_map>
 
 #ifdef _WIN32
+  #ifndef WIN32_LEAN_AND_MEAN
+    #define WIN32_LEAN_AND_MEAN
+  #endif
+  #ifndef NOMINMAX
+    #define NOMINMAX
+  #endif
   #include <winsock2.h>
   #include <ws2tcpip.h>
   #pragma comment(lib, "ws2_32.lib")
   using sock_t = SOCKET;
   constexpr sock_t kInvalidSock = INVALID_SOCKET;
   #define CLOSE_SOCKET closesocket
+  using pollfd = WSAPOLLFD;
+  #ifndef POLLIN
+    #define POLLIN POLLRDNORM
+  #endif
+  #ifndef POLLHUP
+    #define POLLHUP POLLRDHUP
+  #endif
+  inline int poll(pollfd* fds, unsigned long nfds, int timeout) {
+    return WSAPoll(fds, nfds, timeout);
+  }
   using ssize_t = ptrdiff_t;
 #else
   #include <arpa/inet.h>
@@ -33,14 +49,27 @@
 
 namespace astrolune::proxy {
 
+namespace {
+
+sock_t to_native_socket(socket_handle fd) {
+    return static_cast<sock_t>(fd);
+}
+
+socket_handle from_native_socket(sock_t fd) {
+    return static_cast<socket_handle>(fd);
+}
+
+}
+
 // ---------------------------------------------------------------------------
 // Wire helpers
 // ---------------------------------------------------------------------------
 
-std::expected<size_t, ProxyError> read_exact(int fd, uint8_t* buf, size_t n) {
+std::expected<size_t, ProxyError> read_exact(socket_handle fd, uint8_t* buf, size_t n) {
+    auto native_fd = to_native_socket(fd);
     size_t total = 0;
     while (total < n) {
-        auto got = ::recv(fd, reinterpret_cast<char*>(buf + total),
+        auto got = ::recv(native_fd, reinterpret_cast<char*>(buf + total),
                           static_cast<int>(n - total), 0);
         if (got <= 0) {
             return std::unexpected(ProxyError::make(
@@ -52,10 +81,11 @@ std::expected<size_t, ProxyError> read_exact(int fd, uint8_t* buf, size_t n) {
     return total;
 }
 
-std::expected<size_t, ProxyError> write_exact(int fd, const uint8_t* buf, size_t n) {
+std::expected<size_t, ProxyError> write_exact(socket_handle fd, const uint8_t* buf, size_t n) {
+    auto native_fd = to_native_socket(fd);
     size_t total = 0;
     while (total < n) {
-        auto sent = ::send(fd, reinterpret_cast<const char*>(buf + total),
+        auto sent = ::send(native_fd, reinterpret_cast<const char*>(buf + total),
                            static_cast<int>(n - total), 0);
         if (sent <= 0) {
             return std::unexpected(ProxyError::make(
@@ -67,22 +97,24 @@ std::expected<size_t, ProxyError> write_exact(int fd, const uint8_t* buf, size_t
     return total;
 }
 
-std::expected<void, ProxyError> set_nonblocking(int fd) {
+std::expected<void, ProxyError> set_nonblocking(socket_handle fd) {
+    auto native_fd = to_native_socket(fd);
 #ifdef _WIN32
     u_long mode = 1;
-    if (::ioctlsocket(fd, FIONBIO, &mode) != 0)
+    if (::ioctlsocket(native_fd, FIONBIO, &mode) != 0)
         return std::unexpected(ProxyError::make(ProxyErrorCode::SocketCreateFailed, "ioctlsocket"));
 #else
-    int flags = ::fcntl(fd, F_GETFL, 0);
-    if (flags < 0 || ::fcntl(fd, F_SETFL, flags | O_NONBLOCK) < 0)
+    int flags = ::fcntl(native_fd, F_GETFL, 0);
+    if (flags < 0 || ::fcntl(native_fd, F_SETFL, flags | O_NONBLOCK) < 0)
         return std::unexpected(ProxyError::make(ProxyErrorCode::SocketCreateFailed, "fcntl"));
 #endif
     return {};
 }
 
-std::expected<void, ProxyError> set_keepalive(int fd) {
+std::expected<void, ProxyError> set_keepalive(socket_handle fd) {
+    auto native_fd = to_native_socket(fd);
     int yes = 1;
-    if (::setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE,
+    if (::setsockopt(native_fd, SOL_SOCKET, SO_KEEPALIVE,
                      reinterpret_cast<const char*>(&yes), sizeof(yes)) < 0)
         return std::unexpected(ProxyError::make(ProxyErrorCode::SocketCreateFailed, "setsockopt"));
     return {};
@@ -140,7 +172,7 @@ void Socks5Proxy::Impl::accept_loop() {
         uint64_t id = next_id.fetch_add(1, std::memory_order_relaxed);
         Connection conn{};
         conn.id = id;
-        conn.client_fd = client_fd;
+        conn.client_fd = from_native_socket(client_fd);
         conn.created_at = std::chrono::steady_clock::now();
         conn.last_active = conn.created_at;
         { std::lock_guard lock(conn_mu); conns[ConnectionKey{id}] = conn; }
@@ -271,12 +303,14 @@ void Socks5Proxy::Impl::relay(sock_t a, sock_t b) {
         if (ret <= 0) break;
 
         if (fds[0].revents & (POLLIN | POLLHUP | POLLERR)) {
-            auto n = ::recv(a, buf, kBufferSize, 0);
+            auto n = ::recv(a, reinterpret_cast<char*>(buf),
+                            static_cast<int>(kBufferSize), 0);
             if (n <= 0) break;
             if (!write_exact(b, buf, static_cast<size_t>(n))) break;
         }
         if (fds[1].revents & (POLLIN | POLLHUP | POLLERR)) {
-            auto n = ::recv(b, buf, kBufferSize, 0);
+            auto n = ::recv(b, reinterpret_cast<char*>(buf),
+                            static_cast<int>(kBufferSize), 0);
             if (n <= 0) break;
             if (!write_exact(a, buf, static_cast<size_t>(n))) break;
         }
@@ -338,8 +372,14 @@ void Socks5Proxy::stop() {
     if (impl_->accept_thread.joinable()) impl_->accept_thread.join();
     std::lock_guard lock(impl_->conn_mu);
     for (auto& [key, conn] : impl_->conns) {
-        if (conn.client_fd != kInvalidSock) { CLOSE_SOCKET(conn.client_fd); conn.client_fd = kInvalidSock; }
-        if (conn.target_fd != kInvalidSock) { CLOSE_SOCKET(conn.target_fd); conn.target_fd = kInvalidSock; }
+        if (conn.client_fd != kInvalidSocketHandle) {
+            CLOSE_SOCKET(to_native_socket(conn.client_fd));
+            conn.client_fd = kInvalidSocketHandle;
+        }
+        if (conn.target_fd != kInvalidSocketHandle) {
+            CLOSE_SOCKET(to_native_socket(conn.target_fd));
+            conn.target_fd = kInvalidSocketHandle;
+        }
         conn.closed = true;
     }
 }
@@ -366,7 +406,7 @@ size_t Socks5Proxy::connection_count() const {
 // ---------------------------------------------------------------------------
 
 std::expected<AuthMethod, ProxyError> Socks5Proxy::socks5_greeting(
-    int fd, const ProxyConfig& cfg) {
+    socket_handle fd, const ProxyConfig& cfg) {
 
     uint8_t header[2]{};
     if (!read_exact(fd, header, 2))
@@ -395,7 +435,7 @@ std::expected<AuthMethod, ProxyError> Socks5Proxy::socks5_greeting(
 }
 
 std::expected<void, ProxyError> Socks5Proxy::socks5_auth_userpass(
-    int fd, std::string_view username, std::string_view password) {
+    socket_handle fd, std::string_view username, std::string_view password) {
 
     uint8_t header[2]{};
     if (!read_exact(fd, header, 2))
@@ -422,7 +462,7 @@ std::expected<void, ProxyError> Socks5Proxy::socks5_auth_userpass(
 }
 
 std::expected<std::pair<std::string, uint16_t>, ProxyError>
-Socks5Proxy::socks5_connect_request(int fd) {
+Socks5Proxy::socks5_connect_request(socket_handle fd) {
     uint8_t header[4]{};
     if (!read_exact(fd, header, 4))
         return std::unexpected(ProxyError::make(ProxyErrorCode::SocksHandshakeFailed, "read header"));
@@ -471,7 +511,7 @@ Socks5Proxy::socks5_connect_request(int fd) {
     return std::pair{std::move(host), port};
 }
 
-std::expected<void, ProxyError> Socks5Proxy::socks5_send_reply(int fd, uint8_t status) {
+std::expected<void, ProxyError> Socks5Proxy::socks5_send_reply(socket_handle fd, uint8_t status) {
     uint8_t reply[10]{};
     reply[0] = 0x05; reply[1] = status; reply[2] = 0x00; reply[3] = 0x01;
     if (!write_exact(fd, reply, 10))

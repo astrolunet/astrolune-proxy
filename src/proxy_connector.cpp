@@ -31,6 +31,12 @@
 #include <thread>
 
 #ifdef _WIN32
+  #ifndef WIN32_LEAN_AND_MEAN
+    #define WIN32_LEAN_AND_MEAN
+  #endif
+  #ifndef NOMINMAX
+    #define NOMINMAX
+  #endif
   #include <winsock2.h>
   #include <ws2tcpip.h>
   #pragma comment(lib, "ws2_32.lib")
@@ -836,7 +842,7 @@ struct ProxyConnector::Impl {
                     auto step = std::chrono::milliseconds(200);
                     while (!stopping.load(std::memory_order_relaxed) && delay.count() > 0) {
                         std::this_thread::sleep_for(
-                            std::min(step, delay));
+                            (std::min)(step, delay));
                         delay -= step;
                     }
                 }

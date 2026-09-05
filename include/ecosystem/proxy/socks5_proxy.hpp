@@ -21,6 +21,9 @@
 
 namespace astrolune::proxy {
 
+using socket_handle = std::uintptr_t;
+constexpr socket_handle kInvalidSocketHandle = static_cast<socket_handle>(-1);
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -85,8 +88,8 @@ struct ProxyConfig {
 
 struct Connection {
     uint64_t   id = 0;
-    int        client_fd = -1;
-    int        target_fd = -1;
+    socket_handle client_fd = kInvalidSocketHandle;
+    socket_handle target_fd = kInvalidSocketHandle;
     std::string target_host;
     uint16_t    target_port = 0;
     bool        authenticated = false;
@@ -177,20 +180,20 @@ public:
     // Perform the SOCKS5 greeting handshake on `fd`.
     // Returns the method chosen by the server.
     static std::expected<AuthMethod, ProxyError> socks5_greeting(
-        int fd, const ProxyConfig& cfg);
+        socket_handle fd, const ProxyConfig& cfg);
 
     // Perform username/password sub-negotiation (RFC 1929).
     static std::expected<void, ProxyError> socks5_auth_userpass(
-        int fd, std::string_view username, std::string_view password);
+        socket_handle fd, std::string_view username, std::string_view password);
 
     // Read and validate a SOCKS5 CONNECT request.  Returns the
     // target host and port on success.
     static std::expected<std::pair<std::string, uint16_t>, ProxyError>
-    socks5_connect_request(int fd);
+    socks5_connect_request(socket_handle fd);
 
     // Send a SOCKS5 reply with the given status.
     static std::expected<void, ProxyError> socks5_send_reply(
-        int fd, uint8_t status);
+        socket_handle fd, uint8_t status);
 
     // Detect whether a buffer starts with an HTTP CONNECT request.
     static bool is_http_connect(const uint8_t* data, size_t len);
@@ -210,16 +213,16 @@ private:
 
 // Read exactly `n` bytes from a file descriptor into `buf`.
 // Returns the number of bytes read or an error.
-std::expected<size_t, ProxyError> read_exact(int fd, uint8_t* buf, size_t n);
+std::expected<size_t, ProxyError> read_exact(socket_handle fd, uint8_t* buf, size_t n);
 
 // Write exactly `n` bytes from `buf` to a file descriptor.
-std::expected<size_t, ProxyError> write_exact(int fd, const uint8_t* buf, size_t n);
+std::expected<size_t, ProxyError> write_exact(socket_handle fd, const uint8_t* buf, size_t n);
 
 // Set a socket to non-blocking mode.
-std::expected<void, ProxyError> set_nonblocking(int fd);
+std::expected<void, ProxyError> set_nonblocking(socket_handle fd);
 
 // Set SO_KEEPALIVE on a socket.
-std::expected<void, ProxyError> set_keepalive(int fd);
+std::expected<void, ProxyError> set_keepalive(socket_handle fd);
 
 }  // namespace astrolune::proxy
 

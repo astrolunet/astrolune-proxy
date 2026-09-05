@@ -12,8 +12,10 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <chrono>
 #include <string>
 #include <string_view>
+#include <thread>
 #include <vector>
 
 int main(int argc, char** argv) {
@@ -119,14 +121,7 @@ int main(int argc, char** argv) {
         // Block until signal.
         // Simple busy-wait; a production version would use a condition variable.
         while (client.state() == ConnectState::Connected) {
-#if defined(_WIN32)
-            Sleep(500);
-#else
-            struct timespec ts{};
-            ts.tv_sec = 0;
-            ts.tv_nsec = 500'000'000;
-            nanosleep(&ts, nullptr);
-#endif
+            std::this_thread::sleep_for(std::chrono::milliseconds(500));
         }
 
         auto stop_result = client.stop();
