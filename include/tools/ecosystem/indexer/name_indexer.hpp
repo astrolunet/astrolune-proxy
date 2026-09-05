@@ -25,8 +25,12 @@ public:
     NameIndexer() = default;
     ~NameIndexer() = default;
 
+    std::expected<DomainInfo, IndexerError> lookup(const al_hash256& hash) {
+        return std::unexpected(IndexerError{"stub"});
+    }
+
     std::expected<DomainInfo, IndexerError> lookup(const std::string& name) {
-        return IndexerError{"stub"};
+        return std::unexpected(IndexerError{"stub"});
     }
 
     std::expected<void, IndexerError> index(const std::string& name, const al_hash256& hash) {
