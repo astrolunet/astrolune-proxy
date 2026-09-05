@@ -226,12 +226,10 @@ struct AstroluneConnect::Impl {
 
         // [routing]
         if (auto v = get_str("routing.mode"); v) {
-            if (*v == "tun") cfg.mode = ConnectMode::Tun;
-            else cfg.mode = ConnectMode::Socks5;
+            cfg.mode = ConnectMode::Socks5;
         }
         if (auto v = get_str("routing.policy"); v) {
-            if (*v == "all") cfg.routing = RoutingPolicy::AllTraffic;
-            else if (*v == "selective") cfg.routing = RoutingPolicy::Selective;
+            if (*v == "selective") cfg.routing = RoutingPolicy::Selective;
             else cfg.routing = RoutingPolicy::LunOnly;
         }
         if (auto v = get_bool("routing.kill_switch"); v)
@@ -276,14 +274,6 @@ struct AstroluneConnect::Impl {
         }
 
         state.store(ConnectState::Starting);
-
-        // Validate mode.
-        if (cfg.mode == ConnectMode::Tun) {
-            state.store(ConnectState::Error);
-            return std::unexpected(ConnectError::make(
-                ConnectErrorCode::TunNotSupported,
-                "TUN mode is not yet supported; use socks5"));
-        }
 
         // --- Start DNS resolver ---
         resolver = std::make_unique<dns::LuneResolver>();
@@ -479,12 +469,8 @@ int AstroluneConnect::cmd_status() const {
         case ConnectState::Error:        state_str = "error";        break;
     }
 
-    const char* mode_str = "socks5";
-    if (s.mode == ConnectMode::Tun) mode_str = "tun";
-
     const char* routing_str = "lune-only";
-    if (s.routing == RoutingPolicy::AllTraffic) routing_str = "all";
-    else if (s.routing == RoutingPolicy::Selective) routing_str = "selective";
+    if (s.routing == RoutingPolicy::Selective) routing_str = "selective";
 
     std::printf("state:        %s\n", state_str);
     std::printf("mode:         %s\n", mode_str);
@@ -509,13 +495,10 @@ int AstroluneConnect::cmd_config() const {
                 impl_->cfg.upstream_dns.c_str());
     std::printf("dns_cache_max        = %u\n", impl_->cfg.dns_cache_max);
 
-    const char* mode = "socks5";
-    if (impl_->cfg.mode == ConnectMode::Tun) mode = "tun";
-    std::printf("mode                 = \"%s\"\n", mode);
+    std::printf("mode                 = \"socks5\"\n");
 
     const char* policy = "lune-only";
-    if (impl_->cfg.routing == RoutingPolicy::AllTraffic) policy = "all";
-    else if (impl_->cfg.routing == RoutingPolicy::Selective) policy = "selective";
+    if (impl_->cfg.routing == RoutingPolicy::Selective) policy = "selective";
     std::printf("routing              = \"%s\"\n", policy);
 
     std::printf("kill_switch          = %s\n",
@@ -714,12 +697,10 @@ std::expected<ConnectConfig, ConnectError> parse_toml_config(
 
     // [routing]
     if (auto v = get_str("routing.mode"); v) {
-        if (*v == "tun") cfg.mode = ConnectMode::Tun;
-        else cfg.mode = ConnectMode::Socks5;
+        cfg.mode = ConnectMode::Socks5;
     }
     if (auto v = get_str("routing.policy"); v) {
-        if (*v == "all") cfg.routing = RoutingPolicy::AllTraffic;
-        else if (*v == "selective") cfg.routing = RoutingPolicy::Selective;
+        if (*v == "selective") cfg.routing = RoutingPolicy::Selective;
         else cfg.routing = RoutingPolicy::LunOnly;
     }
     if (auto v = get_bool("routing.kill_switch"); v)
@@ -763,11 +744,9 @@ std::string serialize_toml_config(const ConnectConfig& cfg) {
     out << "cache_max  = " << cfg.dns_cache_max << "\n\n";
 
     out << "[routing]\n";
-    const char* mode = cfg.mode == ConnectMode::Tun ? "tun" : "socks5";
     const char* policy = "lune-only";
-    if (cfg.routing == RoutingPolicy::AllTraffic) policy = "all";
-    else if (cfg.routing == RoutingPolicy::Selective) policy = "selective";
-    out << "mode        = \"" << mode << "\"\n";
+    if (cfg.routing == RoutingPolicy::Selective) policy = "selective";
+    out << "mode        = \"socks5\"\n";
     out << "policy      = \"" << policy << "\"\n";
     out << "kill_switch = " << (cfg.kill_switch ? "true" : "false") << "\n\n";
 

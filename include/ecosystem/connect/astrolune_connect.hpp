@@ -44,13 +44,11 @@ enum class ConnectState : uint8_t {
 // Connect mode: how traffic is routed.
 enum class ConnectMode : uint8_t {
     Socks5,         // local SOCKS5 proxy (default)
-    Tun,            // TUN interface (future)
 };
 
 // Routing policy for DNS and traffic.
 enum class RoutingPolicy : uint8_t {
     LunOnly,        // only .lune traffic through resolver/proxy
-    AllTraffic,     // all traffic through the proxy (VPN mode)
     Selective,      // selected apps/CIDRs only
 };
 
@@ -106,7 +104,6 @@ enum class ConnectErrorCode {
     DnsResolveFailed,
     ProxyStartFailed,
     ProxyStopFailed,
-    TunNotSupported,
     AlreadyRunning,
     NotRunning,
     AlreadyStopping,
