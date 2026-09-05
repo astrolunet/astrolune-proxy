@@ -12,9 +12,11 @@ public:
     LuneResolver() = default;
     ~LuneResolver() = default;
 
-    std::expected<uint32_t, std::string> resolve(const std::string& name) {
-        return 0;  // stub
-    }
+    void set_port(uint16_t) {}
+    void set_default_upstream(const std::string&) {}
+    std::expected<void, std::string> start() { return {}; }
+    void stop() {}
+    std::expected<uint32_t, std::string> resolve(const std::string&) { return 0; }
 };
 
 }  // namespace dns
