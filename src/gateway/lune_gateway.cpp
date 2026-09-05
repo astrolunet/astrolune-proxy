@@ -695,7 +695,7 @@ std::string_view LuneGateway::content_type_for(std::string_view path) {
         return "application/octet-stream";
     }
 
-    auto ext = path.substr(dot + 1);
+    auto ext = std::string(path.substr(dot + 1));
     std::transform(ext.begin(), ext.end(), ext.begin(),
                    [](unsigned char c) { return std::tolower(c); });
 
