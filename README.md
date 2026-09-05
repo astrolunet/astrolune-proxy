@@ -1,31 +1,36 @@
-# Astrolune Connect
+# Astrolune Proxy
 
-Local client for accessing `.lune` domains on the Astrolune network.
+Proxy and gateway for accessing `.lune` sites on the Astrolune network.
 
-## Features
+## Components
 
-- **Local DNS** — Resolves `.lune` domains via UDP:5335
-- **SOCKS5 Proxy** — HTTP CONNECT tunneling for browser access
-- **VPN Mode** — Full traffic routing through TUN interface (coming soon)
+### SOCKS5 Proxy
+SOCKS5/HTTP CONNECT proxy that tunnels browser traffic through the Astrolune network.
+
+### Proxy Connector
+Reverse tunnel connector for self-hosted servers to expose services on `.lune` domains.
+
+### Lune Gateway
+HTTP gateway that serves static `.lune` sites from the content-addressed storage.
+
+### Connect Client
+CLI orchestrator that manages DNS resolution and proxy connections.
 
 ## Usage
 
 ```bash
-# Start the local resolver and proxy
+# Start proxy + DNS
 astrolune-connect --dns --proxy
 
-# DNS only
-astrolune-connect --dns
-
-# Proxy only (forward to existing resolver)
-astrolune-connect --proxy --resolver 127.0.0.1:5335
+# Expose a local server on .lune
+proxy-connector --local-port 3000 --name myapp.lune
 ```
 
 ## Build
 
 ```bash
-cmake --preset dev
-cmake --build --preset dev
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build
 ```
 
 ## License
