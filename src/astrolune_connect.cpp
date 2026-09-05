@@ -473,7 +473,7 @@ int AstroluneConnect::cmd_status() const {
     if (s.routing == RoutingPolicy::Selective) routing_str = "selective";
 
     std::printf("state:        %s\n", state_str);
-    std::printf("mode:         %s\n", mode_str);
+    std::printf("mode:         socks5\n");
     std::printf("routing:      %s\n", routing_str);
     std::printf("kill-switch:  %s\n", s.kill_switch ? "on" : "off");
     std::printf("dns-port:     %u\n", s.dns_port);

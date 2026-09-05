@@ -15,8 +15,15 @@ add_library(astrolune_proxy STATIC
 
 target_include_directories(astrolune_proxy PUBLIC include)
 target_link_libraries(astrolune_proxy PUBLIC OpenSSL::Crypto)
+if(WIN32)
+    target_link_libraries(astrolune_proxy PUBLIC ws2_32)
+endif()
 
 add_executable(astrolune-connect src/main.cpp)
 target_link_libraries(astrolune-connect PRIVATE astrolune_proxy)
 
+add_executable(astrolune-proxy-node src/node.cpp)
+target_link_libraries(astrolune-proxy-node PRIVATE astrolune_proxy)
+
 install(TARGETS astrolune-connect RUNTIME DESTINATION bin)
+install(TARGETS astrolune-proxy-node RUNTIME DESTINATION bin)
