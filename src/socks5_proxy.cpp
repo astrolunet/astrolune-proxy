@@ -168,7 +168,7 @@ void Socks5Proxy::Impl::accept_loop() {
             if (!running.load(std::memory_order_relaxed)) break;
             continue;
         }
-        set_keepalive(client_fd);
+        (void)set_keepalive(client_fd);
         uint64_t id = next_id.fetch_add(1, std::memory_order_relaxed);
         Connection conn{};
         conn.id = id;
@@ -223,12 +223,12 @@ void Socks5Proxy::Impl::handle_socks5(uint64_t /*id*/, sock_t client_fd) {
         std::string pass(reinterpret_cast<char*>(sub_buf + 2 + ulen), plen_buf[0]);
         if (user != cfg.auth_username || pass != cfg.auth_password) {
             uint8_t fail[2] = {0x01, 0x01};
-            write_exact(client_fd, fail, 2);
+            (void)write_exact(client_fd, fail, 2);
             CLOSE_SOCKET(client_fd);
             return;
         }
         uint8_t ok[2] = {0x01, 0x00};
-        write_exact(client_fd, ok, 2);
+        (void)write_exact(client_fd, ok, 2);
     }
 
     auto req = Socks5Proxy::socks5_connect_request(client_fd);
@@ -236,8 +236,8 @@ void Socks5Proxy::Impl::handle_socks5(uint64_t /*id*/, sock_t client_fd) {
 
     auto& [host, port] = *req;
     auto res = connect_and_relay(client_fd, host, port);
-    if (!res) Socks5Proxy::socks5_send_reply(client_fd, 0x01);
-    else Socks5Proxy::socks5_send_reply(client_fd, 0x00);
+    if (!res) (void)Socks5Proxy::socks5_send_reply(client_fd, 0x01);
+    else (void)Socks5Proxy::socks5_send_reply(client_fd, 0x00);
 }
 
 void Socks5Proxy::Impl::handle_http_connect(uint64_t /*id*/, sock_t client_fd) {
@@ -260,10 +260,10 @@ void Socks5Proxy::Impl::handle_http_connect(uint64_t /*id*/, sock_t client_fd) {
     auto res = connect_and_relay(client_fd, host, port);
     if (!res) {
         const char* fail = "HTTP/1.1 502 Bad Gateway\r\n\r\n";
-        write_exact(client_fd, reinterpret_cast<const uint8_t*>(fail), strlen(fail));
+        (void)write_exact(client_fd, reinterpret_cast<const uint8_t*>(fail), strlen(fail));
     } else {
         const char* ok = "HTTP/1.1 200 Connection Established\r\n\r\n";
-        write_exact(client_fd, reinterpret_cast<const uint8_t*>(ok), strlen(ok));
+        (void)write_exact(client_fd, reinterpret_cast<const uint8_t*>(ok), strlen(ok));
     }
 }
 
@@ -454,7 +454,7 @@ std::expected<void, ProxyError> Socks5Proxy::socks5_auth_userpass(
 
     uint8_t status = (user == username && pass == password) ? 0x00 : 0x01;
     uint8_t reply[2] = {0x01, status};
-    write_exact(fd, reply, 2);
+    (void)write_exact(fd, reply, 2);
 
     if (status != 0x00)
         return std::unexpected(ProxyError::make(ProxyErrorCode::AuthFailed, "bad credentials"));

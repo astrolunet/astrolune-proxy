@@ -200,7 +200,7 @@ struct LuneGateway::Impl {
                     "HTTP/1.1 503 Service Unavailable\r\n"
                     "Connection: close\r\n"
                     "Content-Length: 0\r\n\r\n";
-                write_exact(client_fd,
+                (void)write_exact(client_fd,
                             reinterpret_cast<const uint8_t*>(resp.data()),
                             resp.size());
                 CLOSE_SOCKET(client_fd);
@@ -240,7 +240,7 @@ struct LuneGateway::Impl {
             std::string resp =
                 "HTTP/1.1 413 Request Entity Too Large\r\n"
                 "Connection: close\r\n\r\n";
-            write_exact(client_fd,
+            (void)write_exact(client_fd,
                         reinterpret_cast<const uint8_t*>(resp.data()),
                         resp.size());
             CLOSE_SOCKET(client_fd);
@@ -254,7 +254,7 @@ struct LuneGateway::Impl {
             std::string resp =
                 "HTTP/1.1 400 Bad Request\r\n"
                 "Connection: close\r\n\r\n";
-            write_exact(client_fd,
+            (void)write_exact(client_fd,
                         reinterpret_cast<const uint8_t*>(resp.data()),
                         resp.size());
             CLOSE_SOCKET(client_fd);
@@ -268,7 +268,7 @@ struct LuneGateway::Impl {
         if (req.method == HttpMethod::Options) {
             auto resp = build_response(204, "No Content", "text/plain", 0,
                                         req.keep_alive, cfg);
-            write_exact(client_fd,
+            (void)write_exact(client_fd,
                         reinterpret_cast<const uint8_t*>(resp.data()),
                         resp.size());
             CLOSE_SOCKET(client_fd);
@@ -288,7 +288,7 @@ struct LuneGateway::Impl {
                 "Content-Type: text/plain\r\n"
                 "Content-Length: 26\r\n\r\n"
                 "Invalid Host header";
-            write_exact(client_fd,
+            (void)write_exact(client_fd,
                         reinterpret_cast<const uint8_t*>(resp.data()),
                         resp.size());
             CLOSE_SOCKET(client_fd);
@@ -306,7 +306,7 @@ struct LuneGateway::Impl {
                 std::string resp =
                     "HTTP/1.1 502 Bad Gateway\r\n"
                     "Connection: close\r\n\r\n";
-                write_exact(client_fd,
+                (void)write_exact(client_fd,
                             reinterpret_cast<const uint8_t*>(resp.data()),
                             resp.size());
                 CLOSE_SOCKET(client_fd);
@@ -323,11 +323,11 @@ struct LuneGateway::Impl {
                 std::string body = "Domain not found: " + domain;
                 auto resp = build_response(404, "Not Found", "text/plain",
                                             body.size(), req.keep_alive, cfg);
-                write_exact(client_fd,
+                (void)write_exact(client_fd,
                             reinterpret_cast<const uint8_t*>(resp.data()),
                             resp.size());
                 if (!body.empty()) {
-                    write_exact(client_fd,
+                    (void)write_exact(client_fd,
                                 reinterpret_cast<const uint8_t*>(body.data()),
                                 body.size());
                 }
@@ -356,7 +356,7 @@ struct LuneGateway::Impl {
             std::string resp =
                 "HTTP/1.1 403 Forbidden\r\n"
                 "Connection: close\r\n\r\n";
-            write_exact(client_fd,
+            (void)write_exact(client_fd,
                         reinterpret_cast<const uint8_t*>(resp.data()),
                         resp.size());
             CLOSE_SOCKET(client_fd);
@@ -399,11 +399,11 @@ struct LuneGateway::Impl {
                         auto resp = build_response(200, "OK", ct,
                                                     index_blob->data.size(),
                                                     req.keep_alive, cfg);
-                        write_exact(client_fd,
+                        (void)write_exact(client_fd,
                                     reinterpret_cast<const uint8_t*>(resp.data()),
                                     resp.size());
                         if (!is_head && !index_blob->data.empty()) {
-                            write_exact(client_fd, index_blob->data.data(),
+                            (void)write_exact(client_fd, index_blob->data.data(),
                                         index_blob->data.size());
                         }
                         CLOSE_SOCKET(client_fd);
@@ -418,7 +418,7 @@ struct LuneGateway::Impl {
                     "Content-Type: text/plain\r\n"
                     "Content-Length: 14\r\n\r\n"
                     "Not Found";
-                write_exact(client_fd,
+                (void)write_exact(client_fd,
                             reinterpret_cast<const uint8_t*>(resp.data()),
                             resp.size());
                 CLOSE_SOCKET(client_fd);
@@ -430,18 +430,18 @@ struct LuneGateway::Impl {
             auto ct = content_type_for(path);
             auto resp = build_response(200, "OK", ct, blob->data.size(),
                                         req.keep_alive, cfg);
-            write_exact(client_fd,
+            (void)write_exact(client_fd,
                         reinterpret_cast<const uint8_t*>(resp.data()),
                         resp.size());
             if (!is_head && !blob->data.empty()) {
-                write_exact(client_fd, blob->data.data(), blob->data.size());
+                (void)write_exact(client_fd, blob->data.data(), blob->data.size());
             }
         } else {
             // No store configured — return 503
             std::string resp =
                 "HTTP/1.1 503 Service Unavailable\r\n"
                 "Connection: close\r\n\r\n";
-            write_exact(client_fd,
+            (void)write_exact(client_fd,
                         reinterpret_cast<const uint8_t*>(resp.data()),
                         resp.size());
         }

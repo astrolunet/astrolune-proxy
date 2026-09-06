@@ -165,7 +165,7 @@ int main(int argc, char** argv) {
 
         int rc = client.cmd_resolve(resolve_name);
 
-        client.stop();
+        (void)client.stop();
         return rc;
     }
 

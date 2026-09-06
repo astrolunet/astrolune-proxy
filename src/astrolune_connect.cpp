@@ -62,13 +62,106 @@ bool parse_bool(std::string_view s) {
     return s == "true" || s == "yes" || s == "1";
 }
 
+std::optional<int> hex_value(char c) {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return std::nullopt;
+}
+
+std::optional<std::string> unescape_basic_string(std::string_view value) {
+    std::string result;
+    result.reserve(value.size());
+
+    for (size_t i = 0; i < value.size(); ++i) {
+        if (value[i] != '\\') {
+            result.push_back(value[i]);
+            continue;
+        }
+        if (++i == value.size()) return std::nullopt;
+
+        switch (value[i]) {
+        case 'b': result.push_back('\b'); break;
+        case 't': result.push_back('\t'); break;
+        case 'n': result.push_back('\n'); break;
+        case 'f': result.push_back('\f'); break;
+        case 'r': result.push_back('\r'); break;
+        case '"': result.push_back('"'); break;
+        case '\\': result.push_back('\\'); break;
+        case 'u': {
+            if (i + 4 >= value.size()) return std::nullopt;
+            uint32_t codepoint = 0;
+            for (int digit = 0; digit < 4; ++digit) {
+                auto value_digit = hex_value(value[++i]);
+                if (!value_digit) return std::nullopt;
+                codepoint = (codepoint << 4) | static_cast<uint32_t>(*value_digit);
+            }
+            if (codepoint > 0x10FFFF || (codepoint >= 0xD800 && codepoint <= 0xDFFF)) {
+                return std::nullopt;
+            }
+            if (codepoint < 0x80) {
+                result.push_back(static_cast<char>(codepoint));
+            } else if (codepoint < 0x800) {
+                result.push_back(static_cast<char>(0xC0 | (codepoint >> 6)));
+                result.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+            } else if (codepoint < 0x10000) {
+                result.push_back(static_cast<char>(0xE0 | (codepoint >> 12)));
+                result.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
+                result.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+            } else {
+                result.push_back(static_cast<char>(0xF0 | (codepoint >> 18)));
+                result.push_back(static_cast<char>(0x80 | ((codepoint >> 12) & 0x3F)));
+                result.push_back(static_cast<char>(0x80 | ((codepoint >> 6) & 0x3F)));
+                result.push_back(static_cast<char>(0x80 | (codepoint & 0x3F)));
+            }
+            break;
+        }
+        default: return std::nullopt;
+        }
+    }
+    return result;
+}
+
+std::string escape_basic_string(std::string_view value) {
+    std::string result;
+    result.reserve(value.size() + 2);
+    for (char c : value) {
+        switch (c) {
+        case '\b': result += "\\b"; break;
+        case '\t': result += "\\t"; break;
+        case '\n': result += "\\n"; break;
+        case '\f': result += "\\f"; break;
+        case '\r': result += "\\r"; break;
+        case '"': result += "\\\""; break;
+        case '\\': result += "\\\\"; break;
+        default: {
+            const auto byte = static_cast<unsigned char>(c);
+            if (byte < 0x20 || byte == 0x7F) {
+                char buffer[7];
+                std::snprintf(buffer, sizeof(buffer), "\\u%04X", byte);
+                result += buffer;
+            } else {
+                result.push_back(c);
+            }
+        }
+        }
+    }
+    return result;
+}
+
 std::optional<TomlValue> parse_toml_value(std::string_view raw) {
     auto v = trim(raw);
     if (v.empty()) return std::nullopt;
 
     // Quoted string
-    if ((v.front() == '"' && v.back() == '"') ||
-        (v.front() == '\'' && v.back() == '\'')) {
+    if (v.front() == '"' && v.size() >= 2 && v.back() == '"') {
+        TomlValue tv;
+        auto unescaped = unescape_basic_string(v.substr(1, v.size() - 2));
+        if (!unescaped) return std::nullopt;
+        tv.str_val = std::move(*unescaped);
+        return tv;
+    }
+    if (v.front() == '\'' && v.size() >= 2 && v.back() == '\'') {
         TomlValue tv;
         tv.str_val = v.substr(1, v.size() - 2);
         return tv;
@@ -348,7 +441,7 @@ AstroluneConnect::AstroluneConnect()
 
 AstroluneConnect::~AstroluneConnect() {
     if (impl_) {
-        impl_->stop_components();
+        (void)impl_->stop_components();
     }
 }
 
@@ -561,7 +654,7 @@ namespace {
 
 void signal_handler_fn(int) {
     if (g_instance) {
-        g_instance->stop();
+        (void)g_instance->stop();
     }
 }
 
@@ -735,12 +828,12 @@ std::string serialize_toml_config(const ConnectConfig& cfg) {
     out << "[network]\n";
     out << "dns_port       = " << cfg.dns_port << "\n";
     out << "socks_port     = " << cfg.socks_port << "\n";
-    out << "listen_address = \"" << cfg.listen_address << "\"\n";
-    out << "chain_id       = \"" << cfg.chain_id << "\"\n";
-    out << "data_dir       = \"" << cfg.data_dir.string() << "\"\n\n";
+    out << "listen_address = \"" << escape_basic_string(cfg.listen_address) << "\"\n";
+    out << "chain_id       = \"" << escape_basic_string(cfg.chain_id) << "\"\n";
+    out << "data_dir       = \"" << escape_basic_string(cfg.data_dir.string()) << "\"\n\n";
 
     out << "[dns]\n";
-    out << "upstream   = \"" << cfg.upstream_dns << "\"\n";
+    out << "upstream   = \"" << escape_basic_string(cfg.upstream_dns) << "\"\n";
     out << "cache_max  = " << cfg.dns_cache_max << "\n\n";
 
     out << "[routing]\n";
@@ -751,8 +844,8 @@ std::string serialize_toml_config(const ConnectConfig& cfg) {
     out << "kill_switch = " << (cfg.kill_switch ? "true" : "false") << "\n\n";
 
     out << "[proxy]\n";
-    out << "username          = \"" << cfg.proxy_username << "\"\n";
-    out << "password          = \"" << cfg.proxy_password << "\"\n";
+    out << "username          = \"" << escape_basic_string(cfg.proxy_username) << "\"\n";
+    out << "password          = \"" << escape_basic_string(cfg.proxy_password) << "\"\n";
     out << "connect_timeout_ms = " << cfg.connect_timeout_ms << "\n";
     out << "max_connections   = " << cfg.max_connections << "\n\n";
 

@@ -25,5 +25,11 @@ target_link_libraries(astrolune-connect PRIVATE astrolune_proxy)
 add_executable(astrolune-proxy-node src/node.cpp)
 target_link_libraries(astrolune-proxy-node PRIVATE astrolune_proxy)
 
+enable_testing()
+
+add_executable(test_config tests/test_config.cpp)
+target_link_libraries(test_config PRIVATE astrolune_proxy)
+add_test(NAME config COMMAND test_config)
+
 install(TARGETS astrolune-connect RUNTIME DESTINATION bin)
 install(TARGETS astrolune-proxy-node RUNTIME DESTINATION bin)

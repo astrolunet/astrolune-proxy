@@ -677,7 +677,7 @@ struct ProxyConnector::Impl {
                 // Proxy is pinging us — respond
                 TunnelFrame ack{};
                 ack.type = FrameType::HeartbeatAck;
-                send_frame(ack);
+                (void)send_frame(ack);
                 break;
             }
 
@@ -723,7 +723,7 @@ struct ProxyConnector::Impl {
             TunnelFrame close_frame{};
             close_frame.type = FrameType::CloseChannel;
             close_frame.channel_id = frame.channel_id;
-            send_frame(close_frame);
+            (void)send_frame(close_frame);
             return;
         }
 
@@ -741,7 +741,7 @@ struct ProxyConnector::Impl {
             TunnelFrame close_frame{};
             close_frame.type = FrameType::CloseChannel;
             close_frame.channel_id = frame.channel_id;
-            send_frame(close_frame);
+            (void)send_frame(close_frame);
             return;
         }
 
